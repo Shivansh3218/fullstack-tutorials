@@ -141,7 +141,6 @@ app.get("/movies", (req, res) => {
   }
 });
 
-
 // IT IS A PAGINATION API
 // IT IS USED TO FETCH THE DATA FROM THE DATABASE IN PAGINATION MANNER
 app.get("/api/movies", (req, res) => {
@@ -177,6 +176,62 @@ app.get("/api/movies", (req, res) => {
   // START INDEX = (3 - 1) * 10 = 20 // WE NEED TO START GIVING THE DATA FROM 20 INDEX TO 29
   // 20 I START AND  BECAUSE LIMIT IS 10 SO IT WILL GIVE THE DATA UNTIL 29 INDEX
 });
+
+// const moviesSchema = new mongoose.Schema({
+//   _id: mongoose.Schema.Types.ObjectId, // mongo db will automatically create an id for the document. // object id is a data type in mongodb that is used to store the unique identifier of the document.
+//   title: String,
+//   director: String,
+//   genre: [String],
+//   year: Number,
+// });
+
+// const Movies = mongoose.model("Movies", moviesSchema)
+
+app.post("/movies", (req, res) => {
+  const newMovie = new Movies({
+    _id: new mongoose.Types.ObjectId(), // to create a new object id
+    title: req.body.title,
+    director: req.body.director,
+    genre: req.body.genre,
+    year: req.body.year,
+  });
+  console.log(newMovie, " new movie");
+
+  newMovie
+    .save() // save the document to the database or collection, or update the document in the database.
+    .then((result) => {
+      res.status(201).send(result);
+    })
+    .catch((error) => {
+      res.status(500).send(error);
+    });
+});
+
+
+
+
+// SEARCH API FOR THE MOVIES
+
+app.get("/movies/search", (req, res) => {
+  
+  const { search } = req.query;
+  if (!search) {
+    return res.status(400).send({ message: "Search query is required" }); // error message
+  }
+
+  Movies.find({
+    title: new RegExp(search, "i"), // i => case insensitive, it will ignore the case of the string. "g" => global search, "m" => multiline search
+  }).then((result) => {
+    res.status(200).send(result);
+  });
+
+
+
+  // res.status(200).send("hello")
+ })
+
+
+
 
 
 

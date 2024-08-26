@@ -207,40 +207,54 @@ app.post("/movies", (req, res) => {
     });
 });
 
-
-
-
 // SEARCH API FOR THE MOVIES
 
 app.get("/movies/search", (req, res) => {
-  
   const { search } = req.query;
   if (!search) {
     return res.status(400).send({ message: "Search query is required" }); // error message
   }
-
-  Movies.find({
-    title: new RegExp(search, "i"), // i => case insensitive, it will ignore the case of the string. "g" => global search, "m" => multiline search
-  }).then((result) => {
-    res.status(200).send(result);
-  });
-
-
+  try {
+    Movies.find({
+      title: new RegExp(search, "i"), // i => case insensitive, it will ignore the case of the string. "g" => global search, "m" => multiline search
+    }).then((result) => {
+      res.status(200).send(result);
+    });
+  } catch (error) {
+    res.status(500).send(error);
+  }
 
   // res.status(200).send("hello")
- })
+});
 
+app.put("/movies/:id", async (req, res) => {
+  const { id } = req.params;
+  console.log(id);
+  try {
+    const updatedMovie = await Movies.findByIdAndUpdate(id, req.body, {
+      new: true,
+    });
+    if (!updatedMovie) return res.status(404).send("Movie not found");
+    res.json(updatedMovie);
+  } catch (err) {
+    res.status(400).send(err.message);
+  }
+});
 
+app.delete("/movies/:id", async (req, res) => {
+  // id =123  DESTRUCTURING req.params = { id: 123 }
+  // const { id } = req.params.id;   // {id: {id: 123}}}  INCORRECT STATEMENT
+  const id = req.params.id; //   req.params = { id: 123 } // DESTRUCTURING, CORRECT STATEMENT
+  console.log(id);
 
-
-
-
-
-
-
-
-
-
+  try {
+    const deletedMovie = await Movies.findByIdAndDelete(id); // DELETE THE DOCUMENT FROM THE DATABASE using UNNQUE ID
+    if (!deletedMovie) return res.status(404).send("Movie not found"); // error handling  404 => NOT FOUND
+    res.json({ message: "Movie deleted successfully" });
+  } catch (error) {
+    res.status(500).send(error);
+  }
+});
 
 // start the server and listen on the port.
 app.listen(port, () => {

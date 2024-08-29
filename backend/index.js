@@ -5,7 +5,16 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const app = express(); // creates a instance of express. APp is used to handle requests and responses, routing, server configuration.
 const port = 3000;
+const bcrypt = require("bcrypt");
+
+const movieRoutes = require("./routes/movieRoutes");
 // this is a route handler. It is a function that is executed when a request is made to the specified path.
+
+// MODELS FOLDER= > DEFINE THE DATABSE SCHEMA
+
+// CONTROLLERS = > CONTAINS THE LOGIC FOR THE ROUTES
+
+// ROUTES => CONTAINS THE ROUTES AND CONNECT THEM TO APPROPRIATE CONTROLLER FUNCTIONS.
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -116,66 +125,10 @@ mongoose
 
 //SCHEMA => It is a blueprint of the database. It defines the structure of the database.
 
-const moviesSchema = new mongoose.Schema({
-  _id: mongoose.Schema.Types.ObjectId, // mongo db will automatically create an id for the document. // object id is a data type in mongodb that is used to store the unique identifier of the document.
-  title: String,
-  director: String,
-  genre: [String],
-  year: Number,
-});
-
-// Model => It is a constructor function that takes the schema and creates an instance of the document. It represents the collection in the database. COMPILED VERSION OF SCHEMA
-
-const Movies = mongoose.model("Movies", moviesSchema); // Movies is the name of the collection in the database.
-
-app.get("/movies", (req, res) => {
-  try {
-    Movies.find()
-      .limit(10)
-      .then((result) => {
-        // using limit to get only 10 documents from the database.
-        res.status(200).send(result);
-      });
-  } catch (error) {
-    res.status(500).send(error);
-  }
-});
+// getting everything
 
 // IT IS A PAGINATION API
 // IT IS USED TO FETCH THE DATA FROM THE DATABASE IN PAGINATION MANNER
-app.get("/api/movies", (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    // const limit = parseInt(req.query.limit) || 10;
-    const limit = 10;
-
-    // console.log(page, limit);
-    const startIndex = (page - 1) * limit; // value of startindex will be 0
-
-    Movies.find() // FIND THE DOCUMENTS FROM THE DATABASE
-      .skip(startIndex) // SKIP THE DOCUMENTS FROM THE DATABASE. // SKIP THE DATA BEFORE THE START INDEX
-      .limit(limit) // IT IS USED TO LIMIT THE NUMBER OF DOCUMENTS TO BE FETCHED FROM THE DATABASE.
-      .then((result) => {
-        res
-          .status(200) // STATUS CODE 200 MEANS SUCCESS
-          .send(result); // SENDING THE RESPONSE FROM THE SERVER
-      });
-  } catch (error) {}
-
-  // EXAMPLE
-
-  // PAGE = 1
-  // START INDEX = (1-1)*10 = 0 // WE NEED TO START GIVING THE DATA FROM 0 INDEX TO 9
-  // 0 I START AND  BECAUSE LIMIT IS 10 SO IT WILL GIVE THE DATA UNTIL 9 INDEX start= 0 and limit = 10
-
-  // PAGE = 2
-  // START INDEX = (2 - 1) * 10 = 10 // WE NEED TO START GIVING THE DATA FROM 10 INDEX TO 19
-  // 10 I START AND  BECAUSE LIMIT IS 10 SO IT WILL GIVE THE DATA UNTIL 19 INDEX
-
-  // PAGE = 3
-  // START INDEX = (3 - 1) * 10 = 20 // WE NEED TO START GIVING THE DATA FROM 20 INDEX TO 29
-  // 20 I START AND  BECAUSE LIMIT IS 10 SO IT WILL GIVE THE DATA UNTIL 29 INDEX
-});
 
 // const moviesSchema = new mongoose.Schema({
 //   _id: mongoose.Schema.Types.ObjectId, // mongo db will automatically create an id for the document. // object id is a data type in mongodb that is used to store the unique identifier of the document.
@@ -187,74 +140,62 @@ app.get("/api/movies", (req, res) => {
 
 // const Movies = mongoose.model("Movies", moviesSchema)
 
-app.post("/movies", (req, res) => {
-  const newMovie = new Movies({
-    _id: new mongoose.Types.ObjectId(), // to create a new object id
-    title: req.body.title,
-    director: req.body.director,
-    genre: req.body.genre,
-    year: req.body.year,
+app.use("/", movieRoutes);
+
+
+//
+
+const users = [
+  {
+    email: "shivansh@`12.gmail.com",
+    password: "$2b$12$roRzB6C0D.lg1Afs8haZ/eW1y/c8nFnTDYT0FPvVrPqjao26IFw5u",
+  },
+  {
+    email: "shivansh@`12.gmail.com",
+    password: "$2b$12$0gHfSl8i0FM1ovm0f8pVXOH6TH.CrSdTXkbM4Jo.L3IlQZcfQ5TFO",
+  },
+  {
+    email: "shivansh@`13.gmail.com",
+    password: "$2b$12$RG7BpTqd4mg7tFILjCb9d.HHYi/MMLkWiuhbZcm5ick.TKba/gVKm",
+  },
+];
+
+app.post("/signup", async (req, res) => {
+  const { email, password } = req.body;
+  
+  const hashedPassword = await bcrypt.hash(password, 12); // 12 is the number of rounds of hashing that will be applied to the password.
+
+  users.push({
+    email: email,
+    password: hashedPassword,
+
   });
-  console.log(newMovie, " new movie");
 
-  newMovie
-    .save() // save the document to the database or collection, or update the document in the database.
-    .then((result) => {
-      res.status(201).send(result);
-    })
-    .catch((error) => {
-      res.status(500).send(error);
-    });
-});
+    res.status(200).send(users);
+})
 
-// SEARCH API FOR THE MOVIES
+app.post("/login", (req, res) => {
+  const { email, password } = req.body; // extract the email and password from the request body
 
-app.get("/movies/search", (req, res) => {
-  const { search } = req.query;
-  if (!search) {
-    return res.status(400).send({ message: "Search query is required" }); // error message
-  }
-  try {
-    Movies.find({
-      title: new RegExp(search, "i"), // i => case insensitive, it will ignore the case of the string. "g" => global search, "m" => multiline search
-    }).then((result) => {
-      res.status(200).send(result);
-    });
-  } catch (error) {
-    res.status(500).send(error);
+  const user = users.find((user) => user.email === email); // find the user with the specified email
+
+  if (!user) {
+    return res.status(404).send("User not found"); // if user not found, send 404
   }
 
-  // res.status(200).send("hello")
-});
+  const isValidPassword = bcrypt.compare(password, user.password);
 
-app.put("/movies/:id", async (req, res) => {
-  const { id } = req.params;
-  console.log(id);
-  try {
-    const updatedMovie = await Movies.findByIdAndUpdate(id, req.body, {
-      new: true,
-    });
-    if (!updatedMovie) return res.status(404).send("Movie not found");
-    res.json(updatedMovie);
-  } catch (err) {
-    res.status(400).send(err.message);
+  if (!isValidPassword) {
+    return res.status(400).send("Invalid password");
   }
-});
 
-app.delete("/movies/:id", async (req, res) => {
-  // id =123  DESTRUCTURING req.params = { id: 123 }
-  // const { id } = req.params.id;   // {id: {id: 123}}}  INCORRECT STATEMENT
-  const id = req.params.id; //   req.params = { id: 123 } // DESTRUCTURING, CORRECT STATEMENT
-  console.log(id);
+  res.status(200).send("Logged in successfully");
+})
 
-  try {
-    const deletedMovie = await Movies.findByIdAndDelete(id); // DELETE THE DOCUMENT FROM THE DATABASE using UNNQUE ID
-    if (!deletedMovie) return res.status(404).send("Movie not found"); // error handling  404 => NOT FOUND
-    res.json({ message: "Movie deleted successfully" });
-  } catch (error) {
-    res.status(500).send(error);
-  }
-});
+
+
+
+
 
 // start the server and listen on the port.
 app.listen(port, () => {

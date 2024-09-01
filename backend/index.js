@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const app = express(); // creates a instance of express. APp is used to handle requests and responses, routing, server configuration.
 const port = 3000;
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
 const movieRoutes = require("./routes/movieRoutes");
 // this is a route handler. It is a function that is executed when a request is made to the specified path.
@@ -25,9 +26,9 @@ app.get("/", (req, res) => {
 });
 
 // Routes are defined using app.get() method. It takes two arguments, the path and the route handler.
-app.get("/users", (req, res) => {
-  res.send(data);
-});
+// app.get("/users", (req, res) => {
+//   res.send(data);
+// });
 
 // get request for a specific user
 
@@ -140,8 +141,7 @@ mongoose
 
 // const Movies = mongoose.model("Movies", moviesSchema)
 
-app.use("/", movieRoutes);
-
+app.use("/",authenticateToken, movieRoutes);
 
 //
 
@@ -160,20 +160,22 @@ const users = [
   },
 ];
 
+const secretKey = "mysecretkey";
+
 app.post("/signup", async (req, res) => {
   const { email, password } = req.body;
-  
+
   const hashedPassword = await bcrypt.hash(password, 12); // 12 is the number of rounds of hashing that will be applied to the password.
 
   users.push({
     email: email,
     password: hashedPassword,
-
   });
 
-    res.status(200).send(users);
-})
+  res.status(200).send(users);
+});
 
+// LOGIN API
 app.post("/login", (req, res) => {
   const { email, password } = req.body; // extract the email and password from the request body
 
@@ -188,17 +190,81 @@ app.post("/login", (req, res) => {
   if (!isValidPassword) {
     return res.status(400).send("Invalid password");
   }
+  const token = jwt.sign({ email: user.email }, secretKey, { expiresIn: "1h" }); // create a JWT token with the user email and secret key. It will expire in 1 hour.
+  res.status(200).json({
+    token: token,
+    message: "Login successful",
+  });
+});
 
-  res.status(200).send("Logged in successfully");
-})
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  // console.log(token);
+  if (token == null) return res.sendStatus(401); // throw unauthorized error if token is not present
 
+  jwt.verify(token, secretKey, (err, user) => {
+    if (err) return res.sendStatus(403); // throw forbidden error if token is invalid
+    req.user = user;
+    next(); // this passes the control to the next middleware or route handler
+  });
 
+}
 
+app.get("/users", authenticateToken, (req, res) => {
+  res.send(data);
+});
 
+//JWT=> JSON WEB TOKEN, It stores informatioj encoded as a JSON object. It is used to authenticate users and maintain a session.
 
+// IT IS COMPOSED OF THREE PARTS.
+
+// 1. HEADER => It contains the type of token and the hashing algorithm used to generate the signature.
+// 2. PAYLOAD => It contains the claims. Claims are statements about an entity (typically, the user) and additional data
+//3. SIGNATURE => It is used to verify that the sender of the JWT is who it says it is and to ensure that the message wasn't changed along the way.
+
+//how jwt works // AUTHENTICATION FLOW
+
+// 1. user authentication= > user login => server verifies the user credentials => server generates a JWT and sends it to the user.
+
+//2. Store jwt in client side => client stores the JWT in local storage or session storage.
+
+// 3. Send jwt in the header => client sends the JWT in the header of the request to the server.
+
+// 4. Verify jwt => server verifies the JWT and sends the response.
+
+// ADVANTAGES OF JWT .
+
+//1. Compact => JWT is compact and can be sent in the header of the request.
+
+//2. Self-contained => JWT contains all the information needed to verify the user. (user email, user id , secret key)
+
+//3 . Secure => JWT is signed using a secret key or public/private key pair. It ensures that the sender of the JWT is who it says it is.
+
+//4. Stateless => JWT is stateless. It does not require the server to store the user session. It can be used to authenticate users across multiple services. (it is easier to scale the application)
+
+// DISADVANTAGES OF JWT
+
+// 1. JWT is vulnerable to CSRF attacks. (Cross Site Request Forgery) => It is a type of attack where the attacker tricks the user into performing an action on a website without their knowledge.
+
+//token Size => JWT can be large in size if it contains a lot of information. It can increase the size of the request and response.
+
+//3. JWT is not suitable for storing sensitive information. => JWT is encoded, not encrypted. It can be decoded by anyone who has access to the JWT.
+
+// 4. JWT is not suitable for revoking access => Once the JWT is issued, it cannot be revoked. If the JWT is compromised, the attacker can access the user account until the JWT expires.
+
+//EXAMPLE OF JWT => eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+
+// MIDDLEWARES ARE THE FUNCTION THAT PROCESS THE REQUEST BEFORE IT REACHES THE ROUTE HANDLER. (BODYPARSER, CORS, AUTHENTICATION). THEY USE next() TO PASS THE CONTROL TO THE NEXT MIDDLEWARE OR ROUTE HANDLER.
+
+// next()=> It is a function that is used to pass the control to the next middleware or route handler.
+
+//THIS API I WANT CALL IF THE USER IS AUTHENTICATED
 
 // start the server and listen on the port.
 app.listen(port, () => {
   // console.log(`Example app listening at http://localhost:${port}`);
   // console.log(`Server is running on port`, data);
 });
+
+//eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InNoaXZhbnNoQGAxMy5nbWFpbC5jb20iLCJpYXQiOjE3MjUxNjM0ODcsImV4cCI6MTcyNTE2NzA4N30.6M7E0O0qH8vimDVzofWDASG19nNkAhUgtTLclSySYBs
